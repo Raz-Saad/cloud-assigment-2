@@ -15,11 +15,11 @@ export class RestaurantsCdkStack extends cdk.Stack {
     const useCacheFlag = true;
 
     // Students TODO Account Details: Change to your account id
-    const labRole = iam.Role.fromRoleArn(this, 'Role', "arn:aws:iam::079553702230:role/LabRole", { mutable: false });
+    const labRole = iam.Role.fromRoleArn(this, 'Role', "arn:aws:iam::361602391862:role/LabRole", { mutable: false });
 
     // Students TODO Account Details: Change the vpcId to the VPC ID of your existing VPC
     const vpc = ec2.Vpc.fromLookup(this, 'VPC', {
-      vpcId: 'vpc-052733467352389cf',
+      vpcId: 'vpc-01d5907c4f922a485',
     });
 
     this.createNatGatewayForPrivateSubnet(vpc);
@@ -107,7 +107,7 @@ export class RestaurantsCdkStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       role: labRole,
       minCapacity: 1, // Note for students: you may need to change this min capacity for scaling testing if you belive that is right
-      maxCapacity: 1, // Note for students: you may need to change this max capacity for scaling testing if you belive that is right
+      maxCapacity: 3, //I Changed from 1 to 3.  // Note for students: you may need to change this max capacity for scaling testing if you belive that is right
       desiredCapacity: 1, // Note for students: you may need to change this desired capacity for scaling testing if you belive that is right
     });
 
@@ -126,6 +126,11 @@ export class RestaurantsCdkStack extends cdk.Stack {
       port: 80,
       targets: [asg],
     });
+
+    
+    /*
+      CHANGE THIS WHEN TESTING!!!!
+    */
 
     // Note for students: you may need to change this for scaling testing if you belive that is right
     asg.scaleOnRequestCount('AModestLoad', {
@@ -160,16 +165,41 @@ export class RestaurantsCdkStack extends cdk.Stack {
     return bucket;
   }
 
+
+  /*
+   CHANGE readCapacity,writeCapacity ACCORDNING TO WHAT I NEED FOR TESTING LATER
+  */
   private createDynamoDBTable() {
     // Students TODO: Change the table schema as needed
 
     const table = new dynamodb.Table(this, 'Restaurants', {
-      partitionKey: { name: 'SimpleKey', type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: 'RestaurantName', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       billingMode: dynamodb.BillingMode.PROVISIONED,
-      readCapacity: 1, // Note for students: you may need to change this num read capacity for scaling testing if you belive that is right
-      writeCapacity: 1, // Note for students: you may need to change this num write capacity for scaling testing if you belive that is right
+      readCapacity: 3, 
+      writeCapacity: 3, 
     });
+
+    // querying by Cuisine and sort by rating
+    table.addGlobalSecondaryIndex({
+      indexName: 'CuisineGSI',
+      partitionKey: { name: 'Cuisine', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'Rating', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.ALL,
+      readCapacity: 3,
+      writeCapacity: 3,
+    });
+
+    //querying by GeoRegion and sort by rating
+    table.addGlobalSecondaryIndex({
+      indexName: 'GeoRegionGSI',
+      partitionKey: { name: 'GeoRegion', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'Rating', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.ALL,
+      readCapacity: 3,
+      writeCapacity: 3,
+    });
+
 
     // Output the table name
     new cdk.CfnOutput(this, 'TableName', {

@@ -97,6 +97,7 @@ describe('GET /restaurants/region/:region', () => {
   it('should get top restaurants by region', async () => {
     const region = 'North';
     const response = await request(server).get(`/restaurants/region/${region}`);
+    //console.log(response.body) // added for to viewing json
     expect(response.status).toBe(200);
     expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
   });
@@ -107,6 +108,7 @@ describe('GET /restaurants/region/:region/cuisine/:cuisine', () => {
     const region = 'North';
     const cuisine = 'Italian';
     const response = await request(server).get(`/restaurants/region/${region}/cuisine/${cuisine}`);
+    //console.log(response.body) // added for to viewing json
     expect(response.status).toBe(200);
     expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
   });
