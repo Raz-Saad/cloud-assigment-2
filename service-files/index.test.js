@@ -49,6 +49,7 @@ describe('GET /restaurants/:restaurantName', () => {
   it('should get a restaurant by name', async () => {
     const restaurantName = RestaurantAName;
     const response = await request(server).get(`/restaurants/${restaurantName}`);
+    //console.log(response.body)
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 0, region: 'North' });
   });

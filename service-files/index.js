@@ -29,95 +29,132 @@ app.post('/restaurants', async (req, res) => {
 
     // DynamoDB parameters
     const params = {
-      TableName: DbTableName, 
-      Item: {
-        RestaurantName: name,
-        Cuisine: cuisine,
-        GeoRegion: region,
-        Rating: 0, //initialize with 0 
-        RatingCount: 0 //initialize with 0 
-      },
-      ConditionExpression: 'attribute_not_exists(RestaurantName)' // Ensure restaurant doesn't already exist
+        TableName: DbTableName,
+        Item: {
+            RestaurantName: name,
+            Cuisine: cuisine,
+            GeoRegion: region,
+            Rating: 0, //initialize with 0 
+            RatingCount: 0 //initialize with 0 
+        },
+        ConditionExpression: 'attribute_not_exists(RestaurantName)' // Ensure restaurant doesn't already exist
     };
-  
+
     try {
-      // Put item into DynamoDB
-      await dynamoDb.put(params).promise();
-      res.status(200).json({ success: true });
+        // put item into DynamoDB
+        await dynamoDb.put(params).promise();
+
+        // this code is for part B , adding cache mechanism 
+        const restaurant = {
+            name,
+            cuisine,
+            rating: 0,
+            region
+        };
+
+        // updaing the cache
+        const cacheKey = `Restaurant-${name}`;
+        if (USE_CACHE) {
+            await memcachedActions.addRestaurants(cacheKey, restaurant);
+        }
+
+        res.status(200).json({ success: true });
     } catch (error) {
-      console.error('Error adding restaurant to DynamoDB:', error);
-      if (error.code === 'ConditionalCheckFailedException') {
-        res.status(409).json({ success: false, message: 'Restaurant already exists' });
-      } else {
-        res.status(500).json({ success: false, message: 'Failed to add restaurant' });
-      }
+        console.error('Error adding restaurant to DynamoDB:', error);
+        if (error.code === 'ConditionalCheckFailedException') {
+            res.status(409).json({ success: false, message: 'Restaurant already exists' });
+        } else {
+            res.status(500).json({ success: false, message: 'Failed to add restaurant' });
+        }
     }
-  });
+});
 
 app.get('/restaurants/:restaurantName', async (req, res) => {
     const restaurantName = req.params.restaurantName;
+    const cacheKey = `Restaurant-${restaurantName}`;
+
+    // this code is for part B , adding cache mechanism
+    if (USE_CACHE) {
+        const cachedRestaurant = await memcachedActions.getRestaurants(cacheKey);
+        if (cachedRestaurant && cachedRestaurant.value !== undefined) {
+            // parse the cached restaurant data and send it as JSON
+            const cachedRestaurantData = JSON.parse(cachedRestaurant.value);
+            return res.json(cachedRestaurantData);
+        }
+    }
 
     const params = {
-      TableName: DbTableName,
-      Key: {
-        'RestaurantName': restaurantName
-      }
+        TableName: DbTableName,
+        Key: {
+            'RestaurantName': restaurantName
+        }
     };
-  
+
     try {
-      const data = await dynamoDb.get(params).promise();
-  
-      if (!data.Item) {
-        return res.status(404).send("Restaurant not found");
-      }
-  
-      const { RestaurantName, Cuisine, Rating, GeoRegion } = data.Item;
-      const restaurant = {
-        name: RestaurantName,
-        cuisine: Cuisine,
-        rating: Rating,
-        region: GeoRegion
-      };
-  
-      res.json(restaurant); // Return the restaurant data as JSON response
+        const data = await dynamoDb.get(params).promise();
+
+        if (!data.Item) {
+            return res.status(404).send("Restaurant not found");
+        }
+
+        const { RestaurantName, Cuisine, Rating, GeoRegion } = data.Item;
+        const restaurant = {
+            name: RestaurantName,
+            cuisine: Cuisine,
+            rating: Rating,
+            region: GeoRegion
+        };
+
+        // this code is for part B , adding cache mechanism - updaing the cache
+        if (USE_CACHE) {
+            await memcachedActions.addRestaurants(cacheKey, restaurant);
+        }
+
+        res.json(restaurant); // Return the restaurant data as JSON response
     } catch (error) {
-      console.error('Error retrieving restaurant:', error);
-      res.status(500).send("Error retrieving restaurant");
+        console.error('Error retrieving restaurant:', error);
+        res.status(500).send("Error retrieving restaurant");
     }
-  });
+});
 
 app.delete('/restaurants/:restaurantName', async (req, res) => {
     const restaurantName = req.params.restaurantName;
 
     const params = {
-      TableName: DbTableName,
-      Key: {
-        'RestaurantName': restaurantName
-      }
+        TableName: DbTableName,
+        Key: {
+            'RestaurantName': restaurantName
+        }
     };
-  
+
     try {
-      const data = await dynamoDb.delete(params).promise();
-  
-      //check the response data for validation
-      console.log('DeleteItem succeeded:', JSON.stringify(data, null, 2));
-  
-      res.json({ success: true });
+        const data = await dynamoDb.delete(params).promise();
+
+        // this code is for part B , adding cache mechanism
+        const cacheKey = `Restaurant-${restaurantName}`;
+        if (USE_CACHE) {
+            await memcachedActions.deleteRestaurants(cacheKey);
+        }
+
+        //check the response data for validation
+        console.log('DeleteItem succeeded:', JSON.stringify(data, null, 2));
+
+        res.json({ success: true });
     } catch (error) {
-      console.error('Error deleting restaurant:', error);
-      res.status(500).send("Error deleting restaurant");
+        console.error('Error deleting restaurant:', error);
+        res.status(500).send("Error deleting restaurant");
     }
-  });
+});
 
 app.post('/restaurants/rating', async (req, res) => {
     const restaurantName = req.body.name;
-    const rating = req.body.rating; 
+    const rating = req.body.rating;
 
     // Retrieve current restaurant data
     const getParams = {
-        TableName: DbTableName, 
+        TableName: DbTableName,
         Key: {
-        'RestaurantName': restaurantName
+            'RestaurantName': restaurantName
         }
     };
 
@@ -125,11 +162,11 @@ app.post('/restaurants/rating', async (req, res) => {
         const data = await dynamoDb.get(getParams).promise();
 
         if (!data.Item) {
-        return res.status(404).send("Restaurant not found");
+            return res.status(404).send("Restaurant not found");
         }
-    
+
         const currentRating = data.Item.Rating || 0; // Get current rating, default to 0 if not set
-        const currentRatingCount = data.Item.RatingCount  || 0; // Get current rating count, default to 0 if not set
+        const currentRatingCount = data.Item.RatingCount || 0; // Get current rating count, default to 0 if not set
 
         // Calculate new average rating
         const newRatingCount = currentRatingCount + 1;
@@ -137,15 +174,15 @@ app.post('/restaurants/rating', async (req, res) => {
 
         // Update restaurant with new rating
         const updateParams = {
-        TableName: DbTableName,
-        Key: {
-            'RestaurantName': restaurantName
-        },
-        UpdateExpression: 'SET Rating = :rating, RatingCount = :ratingCount',
-        ExpressionAttributeValues: {
-            ':rating': newRating,
-            ':ratingCount': newRatingCount
-        }
+            TableName: DbTableName,
+            Key: {
+                'RestaurantName': restaurantName
+            },
+            UpdateExpression: 'SET Rating = :rating, RatingCount = :ratingCount',
+            ExpressionAttributeValues: {
+                ':rating': newRating,
+                ':ratingCount': newRatingCount
+            }
         };
 
         await dynamoDb.update(updateParams).promise();
