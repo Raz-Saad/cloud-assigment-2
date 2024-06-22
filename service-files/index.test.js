@@ -89,6 +89,7 @@ describe('GET /restaurants/cuisine/:cuisine', () => {
   it('should get top restaurants by cuisine', async () => {
     const cuisine = 'Italian';
     const response = await request(server).get(`/restaurants/cuisine/${cuisine}`);
+    //console.log(response)
     expect(response.status).toBe(200);
     expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
   });

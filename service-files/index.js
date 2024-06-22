@@ -212,6 +212,19 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
             limit = 10; // default limit to 10
         }
 
+        const cacheKey = `Top-${limit}-${cuisine}-Restaurants`;
+
+        // this code is for part B , adding cache mechanism
+        if (USE_CACHE) {
+            const cachedRestaurant = await memcachedActions.getRestaurants(cacheKey);
+            if (cachedRestaurant && cachedRestaurant.value !== undefined) {
+                // parse the cached restaurant data and send it as JSON
+                const cachedRestaurantData = JSON.parse(cachedRestaurant.value);
+                return res.json(cachedRestaurantData);
+            }
+        }
+
+
         let queryParams = {
             TableName: DbTableName,
             IndexName: 'CuisineGSI',
@@ -243,6 +256,10 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
             region: item.GeoRegion
         }));
 
+        // this code is for part B , adding cache mechanism - updaing the cache
+        if (USE_CACHE) {
+            await memcachedActions.addRestaurants(cacheKey, restaurants);
+        }
         res.json(restaurants);
     } catch (error) {
         console.error('Error fetching top restaurants by cuisine and rating:', error);
@@ -265,6 +282,18 @@ app.get('/restaurants/region/:region', async (req, res) => {
             }
         } else {
             limit = 10; // default limit to 10
+        }
+
+        const cacheKey = `Top-${limit}-${region}-Restaurants`;
+
+        // this code is for part B , adding cache mechanism
+        if (USE_CACHE) {
+            const cachedRestaurant = await memcachedActions.getRestaurants(cacheKey);
+            if (cachedRestaurant && cachedRestaurant.value !== undefined) {
+                // parse the cached restaurant data and send it as JSON
+                const cachedRestaurantData = JSON.parse(cachedRestaurant.value);
+                return res.json(cachedRestaurantData);
+            }
         }
 
         const queryParams = {
@@ -291,6 +320,11 @@ app.get('/restaurants/region/:region', async (req, res) => {
             region: item.GeoRegion
         }));
 
+        // this code is for part B , adding cache mechanism - updaing the cache
+        if (USE_CACHE) {
+            await memcachedActions.addRestaurants(cacheKey, restaurants);
+        }
+
         res.json(restaurants);
     } catch (error) {
         console.error('Error fetching top restaurants by region:', error);
@@ -314,6 +348,18 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
             }
         } else {
             limit = 10; // default limit to 10
+        }
+
+        const cacheKey = `Top-${limit}-${region}-${cuisine}-Restaurants`;
+
+        // this code is for part B , adding cache mechanism
+        if (USE_CACHE) {
+            const cachedRestaurant = await memcachedActions.getRestaurants(cacheKey);
+            if (cachedRestaurant && cachedRestaurant.value !== undefined) {
+                // parse the cached restaurant data and send it as JSON
+                const cachedRestaurantData = JSON.parse(cachedRestaurant.value);
+                return res.json(cachedRestaurantData);
+            }
         }
 
         const queryParams = {
@@ -341,6 +387,11 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
             rating: item.Rating,
             region: item.GeoRegion
         }));
+
+        // this code is for part B , adding cache mechanism - updaing the cache
+        if (USE_CACHE) {
+            await memcachedActions.addRestaurants(cacheKey, restaurants);
+        }
 
         res.json(restaurants);
     } catch (error) {
