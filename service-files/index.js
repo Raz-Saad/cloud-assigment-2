@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
 
 app.post('/restaurants', async (req, res) => {
     const { name, cuisine, region } = req.body;
-
+    const region_cuisine = `${region}_${cuisine}`;
     // DynamoDB parameters
     const params = {
         TableName: DbTableName,
@@ -34,6 +34,7 @@ app.post('/restaurants', async (req, res) => {
             RestaurantName: name,
             Cuisine: cuisine,
             GeoRegion: region,
+            GeoRegion_Cuisine: region_cuisine,
             Rating: 0, //initialize with 0 
             RatingCount: 0 //initialize with 0 
         },
@@ -298,7 +299,7 @@ app.get('/restaurants/region/:region', async (req, res) => {
 
         const queryParams = {
             TableName: DbTableName,
-            IndexName: 'GeoRegionGSI', // Assuming 'GeoRegionGSI' is the Global Secondary Index for GeoRegion
+            IndexName: 'GeoRegionGSI',
             KeyConditionExpression: 'GeoRegion = :region',
             ExpressionAttributeValues: {
                 ':region': region
@@ -362,14 +363,14 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
             }
         }
 
-        const queryParams = {
+        const region_cuisine = `${region}_${cuisine}`;
+
+        let queryParams = {
             TableName: DbTableName,
-            IndexName: 'GeoRegionGSI',
-            KeyConditionExpression: 'GeoRegion = :region',
-            FilterExpression: 'Cuisine = :cuisine',
+            IndexName: 'GeoRegion-CuisineGSI',
+            KeyConditionExpression: 'GeoRegion_Cuisine = :region_cuisine',
             ExpressionAttributeValues: {
-                ':region': region,
-                ':cuisine': cuisine
+                ':region_cuisine': region_cuisine
             },
             ScanIndexForward: false, // sort by rating descending
             Limit: limit

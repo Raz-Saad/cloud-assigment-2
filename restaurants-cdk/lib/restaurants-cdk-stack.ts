@@ -12,7 +12,7 @@ import * as s3Deployment from 'aws-cdk-lib/aws-s3-deployment';
 export class RestaurantsCdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-    const useCacheFlag = true;
+    const useCacheFlag = true; // TODO: I NEED TO CHANGE THIS FOR LOAD TEST
 
     // Students TODO Account Details: Change to your account id
     const labRole = iam.Role.fromRoleArn(this, 'Role', "arn:aws:iam::361602391862:role/LabRole", { mutable: false });
@@ -176,8 +176,8 @@ export class RestaurantsCdkStack extends cdk.Stack {
       partitionKey: { name: 'RestaurantName', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       billingMode: dynamodb.BillingMode.PROVISIONED,
-      readCapacity: 3, 
-      writeCapacity: 3, 
+      readCapacity: 1, 
+      writeCapacity: 1, 
     });
 
     // querying by Cuisine and sort by rating
@@ -186,8 +186,8 @@ export class RestaurantsCdkStack extends cdk.Stack {
       partitionKey: { name: 'Cuisine', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'Rating', type: dynamodb.AttributeType.NUMBER },
       projectionType: dynamodb.ProjectionType.ALL,
-      readCapacity: 3,
-      writeCapacity: 3,
+      readCapacity: 1,
+      writeCapacity: 1,
     });
 
     //querying by GeoRegion and sort by rating
@@ -196,10 +196,19 @@ export class RestaurantsCdkStack extends cdk.Stack {
       partitionKey: { name: 'GeoRegion', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'Rating', type: dynamodb.AttributeType.NUMBER },
       projectionType: dynamodb.ProjectionType.ALL,
-      readCapacity: 3,
-      writeCapacity: 3,
+      readCapacity: 1,
+      writeCapacity: 1,
     });
 
+      //querying by GeoRegion & Cuisine and sort by rating
+      table.addGlobalSecondaryIndex({
+        indexName: 'GeoRegion-CuisineGSI',
+        partitionKey: { name: 'GeoRegion_Cuisine', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'Rating', type: dynamodb.AttributeType.NUMBER },
+        projectionType: dynamodb.ProjectionType.ALL,
+        readCapacity: 1,
+        writeCapacity: 1,
+      });
 
     // Output the table name
     new cdk.CfnOutput(this, 'TableName', {
