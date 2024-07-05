@@ -13,7 +13,6 @@ const AWS_REGION = process.env.AWS_REGION;
 const USE_CACHE = process.env.USE_CACHE === 'true';
 
 const memcachedActions = new RestaurantsMemcachedActions(MEMCACHED_CONFIGURATION_ENDPOINT);
-const DbTableName = 'RestaurantsCdkStack-RestaurantsE94BF231-Y72Q1YO6PPRU' // need to update this whenever we use cdk destroy & deploy
 app.get('/', (req, res) => {
     const response = {
         MEMCACHED_CONFIGURATION_ENDPOINT: MEMCACHED_CONFIGURATION_ENDPOINT,
@@ -29,7 +28,7 @@ app.post('/restaurants', async (req, res) => {
     const region_cuisine = `${region}_${cuisine}`;
     // DynamoDB parameters
     const params = {
-        TableName: DbTableName,
+        TableName: TABLE_NAME,
         Item: {
             RestaurantName: name,
             Cuisine: cuisine,
@@ -85,7 +84,7 @@ app.get('/restaurants/:restaurantName', async (req, res) => {
     }
 
     const params = {
-        TableName: DbTableName,
+        TableName: TABLE_NAME,
         Key: {
             'RestaurantName': restaurantName
         }
@@ -122,7 +121,7 @@ app.delete('/restaurants/:restaurantName', async (req, res) => {
     const restaurantName = req.params.restaurantName;
 
     const params = {
-        TableName: DbTableName,
+        TableName: TABLE_NAME,
         Key: {
             'RestaurantName': restaurantName
         }
@@ -153,7 +152,7 @@ app.post('/restaurants/rating', async (req, res) => {
 
     // Retrieve current restaurant data
     const getParams = {
-        TableName: DbTableName,
+        TableName: TABLE_NAME,
         Key: {
             'RestaurantName': restaurantName
         }
@@ -175,7 +174,7 @@ app.post('/restaurants/rating', async (req, res) => {
 
         // Update restaurant with new rating
         const updateParams = {
-            TableName: DbTableName,
+            TableName: TABLE_NAME,
             Key: {
                 'RestaurantName': restaurantName
             },
@@ -229,7 +228,7 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
         }
 
         let queryParams = {
-            TableName: DbTableName,
+            TableName: TABLE_NAME,
             IndexName: 'CuisineGSI',
             KeyConditionExpression: 'Cuisine = :cuisine',
             ExpressionAttributeValues: {
@@ -320,7 +319,7 @@ app.get('/restaurants/region/:region', async (req, res) => {
         }
 
         const queryParams = {
-            TableName: DbTableName,
+            TableName: TABLE_NAME,
             IndexName: 'GeoRegionGSI',
             KeyConditionExpression: 'GeoRegion = :region',
             ExpressionAttributeValues: {
@@ -387,7 +386,7 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
         const region_cuisine = `${region}_${cuisine}`;
 
         let queryParams = {
-            TableName: DbTableName,
+            TableName: TABLE_NAME,
             IndexName: 'GeoRegion-CuisineGSI',
             KeyConditionExpression: 'GeoRegion_Cuisine = :region_cuisine',
             ExpressionAttributeValues: {
