@@ -25,7 +25,7 @@ describe('GET /', () => {
       MEMCACHED_CONFIGURATION_ENDPOINT: process.env.MEMCACHED_CONFIGURATION_ENDPOINT,
       TABLE_NAME: process.env.TABLE_NAME,
       AWS_REGION: process.env.AWS_REGION,
-      USE_CACHE: USE_CACHE
+      USE_CACHE: process.env.USE_CACHE === 'true'
     });
   });
 });
@@ -116,6 +116,75 @@ describe('GET /restaurants/region/:region/cuisine/:cuisine', () => {
     expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
   });
 });
+
+describe('GET /restaurants/cuisine/:cuisine?ratingGreaterThan=:rating', () => {
+  it('should get restaurants by cuisine with rating greater than X', async () => {
+    const cuisine = 'Italian';
+    const ratingGreaterThan = 3;
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}?ratingGreaterThan=${ratingGreaterThan}`);
+    expect(response.status).toBe(200);
+    response.body.forEach(restaurant => {
+      expect(restaurant.cuisine).toBe(cuisine);
+      expect(restaurant.rating).toBeGreaterThan(ratingGreaterThan);
+    });
+  });
+});
+
+describe('GET /restaurants/cuisine/:cuisine', () => {
+  it('should get top rated restaurants by cuisine with limit', async () => {
+    const cuisine = 'Italian';
+    const limit = 5;
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}?limit=${limit}`);
+    expect(response.status).toBe(200);
+    expect(response.body.length).toBeLessThanOrEqual(limit);
+    response.body.forEach(restaurant => {
+      expect(restaurant.cuisine).toBe(cuisine);
+    });
+  });
+});
+
+describe('GET /restaurants/region/:region', () => {
+  it('should get top rated restaurants by region with limit', async () => {
+    const region = 'North';
+    const limit = 5;
+    const response = await request(server).get(`/restaurants/region/${region}?limit=${limit}`);
+    expect(response.status).toBe(200);
+    expect(response.body.length).toBeLessThanOrEqual(limit);
+    response.body.forEach(restaurant => {
+      expect(restaurant.region).toBe(region);
+    });
+  });
+});
+
+describe('GET /restaurants/region/:region/cuisine/:cuisine', () => {
+  it('should get top rated restaurants by region and cuisine with limit', async () => {
+    const region = 'North';
+    const cuisine = 'Italian';
+    const limit = 5;
+    const response = await request(server).get(`/restaurants/region/${region}/cuisine/${cuisine}?limit=${limit}`);
+    expect(response.status).toBe(200);
+    expect(response.body.length).toBeLessThanOrEqual(limit);
+    response.body.forEach(restaurant => {
+      expect(restaurant.region).toBe(region);
+      expect(restaurant.cuisine).toBe(cuisine);
+    });
+  });
+});
+
+describe('GET /restaurants/cuisine/:cuisine?ratingGreaterThan=:rating&limit=:limit', () => {
+  it('should get restaurants by cuisine with rating greater than X with limit', async () => {
+    const cuisine = 'Italian';
+    const ratingGreaterThan = 3;
+    const limit = 5;
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}?ratingGreaterThan=${ratingGreaterThan}&limit=${limit}`);
+    expect(response.status).toBe(200);
+    response.body.forEach(restaurant => {
+      expect(restaurant.cuisine).toBe(cuisine);
+      expect(restaurant.rating).toBeGreaterThan(ratingGreaterThan);
+    });
+  });
+});
+
 
 describe('DELETE /restaurants/:restaurantName', () => {
   it('should delete a restaurant by name', async () => {

@@ -19,7 +19,7 @@ export class RestaurantsCdkStack extends cdk.Stack {
 
     // Students TODO Account Details: Change the vpcId to the VPC ID of your existing VPC
     const vpc = ec2.Vpc.fromLookup(this, 'VPC', {
-      vpcId: 'vpc-01d5907c4f922a485',
+      vpcId: 'vpc-0909f7c46662eb33a',
     });
 
     this.createNatGatewayForPrivateSubnet(vpc);

@@ -13,7 +13,7 @@ const AWS_REGION = process.env.AWS_REGION;
 const USE_CACHE = process.env.USE_CACHE === 'true';
 
 const memcachedActions = new RestaurantsMemcachedActions(MEMCACHED_CONFIGURATION_ENDPOINT);
-const DbTableName = 'RestaurantsCdkStack-RestaurantsE94BF231-1RALB2YUXCB28'
+const DbTableName = 'RestaurantsCdkStack-RestaurantsE94BF231-Y72Q1YO6PPRU' // need to update this whenever we use cdk destroy & deploy
 app.get('/', (req, res) => {
     const response = {
         MEMCACHED_CONFIGURATION_ENDPOINT: MEMCACHED_CONFIGURATION_ENDPOINT,
@@ -195,16 +195,16 @@ app.post('/restaurants/rating', async (req, res) => {
     }
 });
 
+
 app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
     const cuisine = req.params.cuisine;
-    const ratingGreaterThan = req.query.ratingGreaterThan; // get rating threshold from query parameter
-    let limit = req.query.limit; // optional query parameter for limiting results
+    const ratingGreaterThan = req.query.ratingGreaterThan ? parseFloat(req.query.ratingGreaterThan) : null; // get rating threshold from query parameter and convert to float
+    let limit = req.query.limit
 
     try {
         // Ensure the limit is within the range of 10 to 100
         if (limit) {
-            limit = parseInt(limit, 10);
-            if (limit < 10) {
+            if (limit < 0) {
                 limit = 10;
             } else if (limit > 100) {
                 limit = 100;
@@ -213,18 +213,20 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
             limit = 10; // default limit to 10
         }
 
-        const cacheKey = `Top-${limit}-${cuisine}-Restaurants`;
+        let cacheKey = `Top-${limit}-${cuisine}-Restaurants`;
 
-        // this code is for part B , adding cache mechanism
+        if (ratingGreaterThan !== null && ratingGreaterThan > 0) {
+            cacheKey = `Top-${limit}-${cuisine}-Restaurants-ratingGreaterThan-${ratingGreaterThan}`;
+        }
+
+        // Check if cached data exists
         if (USE_CACHE) {
             const cachedRestaurant = await memcachedActions.getRestaurants(cacheKey);
             if (cachedRestaurant && cachedRestaurant.value !== undefined) {
-                // parse the cached restaurant data and send it as JSON
                 const cachedRestaurantData = JSON.parse(cachedRestaurant.value);
                 return res.json(cachedRestaurantData);
             }
         }
-
 
         let queryParams = {
             TableName: DbTableName,
@@ -238,45 +240,65 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
         };
 
         // Add filter condition for rating greater than a specified value if provided
-        if (ratingGreaterThan) {
-            queryParams.FilterExpression = 'Rating > :rating';
-            queryParams.ExpressionAttributeValues[':rating'] = parseFloat(ratingGreaterThan); // Convert string to number
+        if (ratingGreaterThan !== null && ratingGreaterThan > 0) {
+            const data = await dynamoDb.query(queryParams).promise();
+
+            // Filter and map the items to include only those with Rating > ratingGreaterThan
+            const filteredRestaurants = data.Items.filter(item => item.Rating > ratingGreaterThan);
+
+            if (filteredRestaurants.length === 0) {
+                return res.status(404).json({ error: 'No restaurants found for the specified cuisine and rating criteria' });
+            }
+
+            const restaurants = filteredRestaurants.map(item => ({
+                name: item.RestaurantName,
+                cuisine: item.Cuisine,
+                rating: item.Rating,
+                region: item.GeoRegion
+            }));
+
+            // Cache the filtered results if caching is enabled
+            if (USE_CACHE) {
+                await memcachedActions.addRestaurants(cacheKey, restaurants);
+            }
+
+            return res.json(restaurants);
+        } else {
+            // If no ratingGreaterThan is provided, fetch all items based on the queryParams
+            const data = await dynamoDb.query(queryParams).promise();
+
+            if (!data.Items || data.Items.length === 0) {
+                return res.status(404).json({ error: 'No restaurants found for the specified cuisine' });
+            }
+
+            const restaurants = data.Items.map(item => ({
+                name: item.RestaurantName,
+                cuisine: item.Cuisine,
+                rating: item.Rating,
+                region: item.GeoRegion
+            }));
+
+            // Cache the results if caching is enabled
+            if (USE_CACHE) {
+                await memcachedActions.addRestaurants(cacheKey, restaurants);
+            }
+
+            return res.json(restaurants);
         }
-
-        const data = await dynamoDb.query(queryParams).promise();
-
-        if (!data.Items || data.Items.length === 0) {
-            return res.status(404).json({ error: 'No restaurants found for the specified cuisine and rating criteria' });
-        }
-
-        // Map the items to the desired response format
-        const restaurants = data.Items.map(item => ({
-            name: item.RestaurantName,
-            cuisine: item.Cuisine,
-            rating: item.Rating,
-            region: item.GeoRegion
-        }));
-
-        // this code is for part B , adding cache mechanism - updaing the cache
-        if (USE_CACHE) {
-            await memcachedActions.addRestaurants(cacheKey, restaurants);
-        }
-        res.json(restaurants);
     } catch (error) {
         console.error('Error fetching top restaurants by cuisine and rating:', error);
-        res.status(500).json({ error: 'Failed to fetch top restaurants by cuisine and rating criteria' });
+        return res.status(500).json({ error: 'Failed to fetch top restaurants by cuisine and rating criteria' });
     }
 });
 
 app.get('/restaurants/region/:region', async (req, res) => {
     const region = req.params.region;
     let limit = req.query.limit;
-
+    
     try {
         // Ensure the limit is within the range of 10 to 100
         if (limit) {
-            limit = parseInt(limit, 10);
-            if (limit < 10) {
+            if (limit < 0) {
                 limit = 10;
             } else if (limit > 100) {
                 limit = 100;
@@ -341,8 +363,7 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
     try {
         // Ensure the limit is within the range of 10 to 100
         if (limit) {
-            limit = parseInt(limit, 10);
-            if (limit < 10) {
+            if (limit < 0) {
                 limit = 10;
             } else if (limit > 100) {
                 limit = 100;
