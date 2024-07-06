@@ -1,6 +1,6 @@
 const memcache = require("memcache-client");
 
-const CACHE_LIFETIME_IN_SECONDS = 10; //updated to 10 secs
+const CACHE_LIFETIME_IN_SECONDS = 60;
 
 class RestaurantsMemcachedActions {
     /**
