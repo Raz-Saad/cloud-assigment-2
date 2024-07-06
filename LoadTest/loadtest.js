@@ -1,17 +1,19 @@
 const axios = require('axios');
+const { Console } = require('console');
 
 // Define cuisines and regions
 const cuisines = ['Italian', 'Indian', 'Pizza', 'Coffee', 'Barbecue'];
 const regions = ['Center', 'North', 'South', 'East'];
+const endpoint = 'http://Restau-LB8A1-qlnmVvcwBmQj-1834180061.us-east-1.elb.amazonaws.com'
 
 // Function to generate a random restaurant name
 function generateRandomName() {
-    const adjectives = ['Purple', 'Yellow', 'Orange', 'Pink', 'Gray', 'Brown', 'Crimson', 'Violet', 'Indigo', 'Maroon'];
-//const adjectives = ['Green', 'Blue', 'Red', 'White', 'Black', 'Golden', 'Silver'];
+    const adjectives = ['Green', 'Blue', 'Red', 'White', 'Black', 'Golden', 'Silver','Purple', 'Yellow', 'Orange', 'Pink', 'Gray', 'Brown', 'Crimson', 'Violet', 'Indigo'];
     const nouns = ['Dragon', 'Phoenix', 'Tiger', 'Bear', 'Lion', 'Eagle', 'Snake'];
     const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
     const noun = nouns[Math.floor(Math.random() * nouns.length)];
-    return `${adjective}_${noun}_Restaurant`;
+    const randomNum = Math.floor(Math.random() * 1000000) + 1;
+    return `${adjective}_${noun}_Restaurant_${randomNum}`;
 }
 
 // Array to store restaurant names for future tests
@@ -22,7 +24,7 @@ function generateRestaurantData() {
     let restaurants = [];
 
     cuisines.forEach((cuisine) => {
-        for (let i = 0; i < 1; i++) {
+        for (let i = 0; i < 10; i++) {
             const name = generateRandomName();
             const region = regions[Math.floor(Math.random() * regions.length)];
             const restaurant = {
@@ -41,10 +43,9 @@ function generateRestaurantData() {
 // Function to create restaurants via API
 async function createRestaurants() {
     const restaurants = generateRestaurantData();
-
     try {
         for (const restaurant of restaurants) {
-            await axios.post('http://Restau-LB8A1-X2i6k3D0KFio-1837702993.us-east-1.elb.amazonaws.com/restaurants', restaurant);
+            await axios.post(`${endpoint}/restaurants`, restaurant);
             console.log(`Created restaurant: ${restaurant.name}`);
         }
         console.log('All restaurants created successfully.');
@@ -61,7 +62,7 @@ async function rateRestaurants() {
                 name: name,
                 rating: Math.floor(Math.random() * 5) + 1 // Random rating between 1 and 5
             };
-            await axios.post('http://Restau-LB8A1-X2i6k3D0KFio-1837702993.us-east-1.elb.amazonaws.com/restaurants/rating', rating);
+            await axios.post(`${endpoint}/restaurants/rating`, rating);
             console.log(`Rated restaurant ${name} with rating: ${rating.rating}`);
         }
         console.log('All restaurants rated successfully.');
@@ -73,7 +74,7 @@ async function rateRestaurants() {
 // Function to delete a restaurant by name via API
 async function deleteRestaurantByName(restaurantName) {
     try {
-        const response = await axios.delete(`http://Restau-LB8A1-X2i6k3D0KFio-1837702993.us-east-1.elb.amazonaws.com/restaurants/${restaurantName}`);
+        const response = await axios.delete(`${endpoint}/restaurants/${restaurantName}`);
         console.log(`Deleted restaurant: ${restaurantName}`);
         return response.data; // Assuming the API returns { success: true } upon successful deletion
     } catch (error) {
@@ -94,46 +95,74 @@ async function deleteAllRestaurants() {
     }
 }
 
+
 // Function to perform load testing and calculate average response time
 async function calculateAverageResponseTime() {
     const http = require('http');
     const agent = new http.Agent({ keepAlive: true, maxSockets: Infinity });
-    const endpoint = 'http://Restau-LB8A1-X2i6k3D0KFio-1837702993.us-east-1.elb.amazonaws.com';
+    
+    const requestCount = 100; // Adjust as needed
+    const tasks = Array.from({ length: requestCount }, () => makeRequest(agent));
 
-    const requestCount = 2; // Adjust as needed
-    const concurrencyLevel = 1; // Adjust as needed
-    const tasks = Array.from({ length: requestCount }, () => makeRequest(endpoint, agent));
-
-    let totalDuration = 0;
     try {
+
         const results = await Promise.all(tasks);
-        results.forEach(duration => {
-            totalDuration += duration;
+        let totalDuration = 0;
+        let totalRequestCount = 0;
+
+        results.forEach(result => {
+            totalDuration += result.totalDuration;
+            totalRequestCount += result.apiCount;
         });
-        const averageDuration = totalDuration / requestCount;
+
+        const averageDuration = totalDuration / totalRequestCount;
         console.log(`Average Response Time: ${averageDuration.toFixed(2)} ms`);
     } catch (error) {
         console.error('Error in load testing:', error);
     }
 }
 
+// this function helps for getting a random element from any array
+function getRandomElement(array) {
+    return array[Math.floor(Math.random() * array.length)];
+}
+
+function getRandomNumberBetweenOneToThree() {
+    return Math.floor(Math.random() * 3) + 1;
+}
+
 // Helper function to make a request and measure duration
-function makeRequest(endpoint, agent) {
-    return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        axios.get(endpoint, { httpAgent: agent })
-            .then(response => {
+function makeRequest(agent) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const apis = [
+                `${endpoint}/restaurants/cuisine/${getRandomElement(cuisines)}`,
+                `${endpoint}/restaurants/region/${getRandomElement(regions)}`,
+                `${endpoint}/restaurants/region/${getRandomElement(regions)}/cuisine/${getRandomElement(cuisines)}`,
+                `${endpoint}/restaurants/cuisine/${getRandomElement(cuisines)}?ratingGreaterThan=${getRandomNumberBetweenOneToThree()}`,
+                `${endpoint}/restaurants/cuisine/${getRandomElement(cuisines)}?limit=5`,
+                `${endpoint}/restaurants/region/${getRandomElement(regions)}?limit=5`,
+                `${endpoint}/restaurants/${getRandomElement(restaurantNames)}`
+            ];
+            
+            const durations = [];
+            for (const api of apis) {
+                const startTime = Date.now();
+                await axios.get(api, { agent });
                 const endTime = Date.now();
                 const duration = endTime - startTime;
-                console.log(`Response status: ${response.status}, Time Taken: ${duration} ms`);
-                resolve(duration);
-            })
-            .catch(error => {
-                const endTime = Date.now();
-                const duration = endTime - startTime;
-                console.error(`Error: ${error.response ? error.response.status : error.message}, Time Taken: ${duration} ms`);
-                reject(error);
-            });
+                durations.push(duration);
+                console.log(`Response from ${api}, Time Taken: ${duration} ms`);
+            }
+            
+            const totalDuration = durations.reduce((acc, cur) => acc + cur, 0);
+            const apiCount = apis.length;
+            resolve({ totalDuration, apiCount });
+            
+        } catch (error) {
+            console.error(`Error: ${error.response ? error.response.status : error.message}`);
+            reject(error);
+        }
     });
 }
 
